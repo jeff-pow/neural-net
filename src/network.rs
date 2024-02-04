@@ -57,7 +57,7 @@ impl Network {
                 self.update_mini_batch(data, lr)
             }
             println!(
-                "Epoch: {}, Training Accuracy: {:.2}",
+                "Epoch: {}, Training Accuracy: {:.2}%",
                 i,
                 self.evaluate(training_data)
             );
@@ -107,10 +107,10 @@ impl Network {
             .zip(biases_change.iter().flatten())
             .for_each(|(b, nb)| *b -= lr / mini_batch.len() as f32 * nb);
         if b == self.biases {
-            (biases_change
+            biases_change
                 .iter()
                 .flatten()
-                .for_each(|&x| assert!(x == 0.)));
+                .for_each(|&x| assert_eq!(x, 0.));
         }
     }
 
@@ -155,14 +155,16 @@ impl Network {
         );
 
         for l in 1..self.num_layers() - 1 {
-            delta = self.weights[l].t().dot(&delta) * zs[l - 1].mapv(activate_prime);
-            delta_weights.push(fat_cross(&delta, &activations[l - 1]));
+            let idx = self.num_layers() - 1 - l;
+            delta = self.weights[idx].t().dot(&delta) * zs[idx - 1].mapv(activate_prime);
+            delta_weights.push(fat_cross(&delta, &activations[idx - 1]));
             delta_biases.push(delta.clone());
         }
         // l = 1, l - 1 = 0
         // delta = (self.weights[1].t().dot(&delta)) * zs[0].mapv(activate_prime);
         // delta_weights.push(fat_cross(&delta, &activations[0]));
         // delta_biases.push(delta);
+
         assert_eq!(delta_biases.last().unwrap().shape(), self.biases[0].shape());
         assert_eq!(
             delta_weights.last().unwrap().shape(),

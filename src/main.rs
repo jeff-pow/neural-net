@@ -10,13 +10,13 @@ use crate::network::Data;
 const IMAGE_SIZE: usize = 28 * 28;
 
 fn main() {
-    let mut network = Network::new(vec![784, 30, 10]);
+    let mut network = Network::new(vec![784, 20, 10]);
     let (mut train_data, test_data) = load_data();
 
     network.train(&mut train_data, 30, 10, 3.0);
 
     println!(
-        "Accuracy in training set: {:.2}%",
+        "Accuracy in test data: {:.2}%",
         network.evaluate(&test_data)
     );
     println!("Mean squared error: {:.2}", network.cost(&test_data));
