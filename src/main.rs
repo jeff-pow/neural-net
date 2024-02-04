@@ -1,16 +1,17 @@
+mod activations;
 mod network;
 
+use crate::activations::Activation::*;
+use crate::network::Data;
 use mnist::*;
 use ndarray::prelude::*;
 use network::Network;
 use rand::{rngs::StdRng, seq::SliceRandom, SeedableRng};
 
-use crate::network::Data;
-
 const IMAGE_SIZE: usize = 28 * 28;
 
 fn main() {
-    let mut network = Network::new(vec![784, 20, 10]);
+    let mut network = Network::new(vec![784, 20, 10], vec![Sigmoid, Sigmoid]);
     let (mut train_data, test_data) = load_data();
 
     network.train(&mut train_data, 30, 10, 3.0);

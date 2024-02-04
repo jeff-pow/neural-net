@@ -1,3 +1,4 @@
+use itertools::izip;
 use ndarray::{Array, Array1, Array2, Axis};
 use rand::{
     distributions::{Distribution, Uniform},
@@ -6,6 +7,8 @@ use rand::{
     SeedableRng,
 };
 
+use crate::activations::Activation;
+
 pub type Data = (Array1<f32>, Array1<f32>);
 
 #[derive(Clone, Debug, PartialEq)]
@@ -13,10 +16,11 @@ pub struct Network {
     pub weights: Vec<Array2<f32>>,
     pub biases: Vec<Array1<f32>>,
     pub sizes: Vec<usize>,
+    pub activations: Vec<Activation>,
 }
 
 impl Network {
-    pub fn new(sizes: Vec<usize>) -> Self {
+    pub fn new(sizes: Vec<usize>, activations: Vec<Activation>) -> Self {
         let mut rng: StdRng = SeedableRng::seed_from_u64(12037);
         let between = Uniform::from(-1.0..1.0);
         let num_layers = sizes.len();
@@ -36,10 +40,13 @@ impl Network {
             weights.push(weight_matrix);
             biases.push(bias_matrix);
         }
+        assert_eq!(weights.len(), biases.len());
+        assert_eq!(weights.len(), activations.len());
         Self {
             weights,
             biases,
             sizes,
+            activations,
         }
     }
 
@@ -124,11 +131,12 @@ impl Network {
         let mut zs = Vec::new();
 
         // Forward pass
-        for (w, b) in self.weights.iter().zip(self.biases.iter()) {
+        // for (w, b) in self.weights.iter().zip(self.biases.iter()) {
+        for (w, b, a) in izip!(&self.weights, &self.biases, &self.activations) {
             let z = w.dot(&activation) + b;
             zs.push(z.clone());
             // activation = sigmoid(&z);
-            activation = z.mapv(activate);
+            activation = z.mapv(a.activate());
             activations.push(activation.clone());
         }
 
@@ -136,7 +144,9 @@ impl Network {
         // to the final layer.
         // BP1
         let mut delta = cost_derivative(activations.last().unwrap(), target_output)
-            * zs.last().unwrap().mapv(activate_prime);
+            * zs.last()
+                .unwrap()
+                .mapv(self.activations.last().unwrap().activate_prime());
 
         let mut delta_biases = Vec::new();
         let mut delta_weights = Vec::new();
@@ -156,7 +166,8 @@ impl Network {
 
         for l in 1..self.num_layers() - 1 {
             let idx = self.num_layers() - 1 - l;
-            delta = self.weights[idx].t().dot(&delta) * zs[idx - 1].mapv(activate_prime);
+            delta = self.weights[idx].t().dot(&delta)
+                * zs[idx - 1].mapv(self.activations[idx].activate_prime());
             delta_weights.push(fat_cross(&delta, &activations[idx - 1]));
             delta_biases.push(delta.clone());
         }
@@ -202,11 +213,14 @@ impl Network {
     }
 
     pub fn feed_forward(&self, input: &Array1<f32>) -> Array1<f32> {
-        let mut a = input.to_owned();
-        for (w, b) in self.weights.iter().zip(self.biases.iter()) {
-            a = (w.dot(&a) + b).mapv(activate);
+        let mut output = input.to_owned();
+        // for (w, b) in self.weights.iter().zip(self.biases.iter()) {
+        //     output = (w.dot(&output) + b).mapv(activate);
+        // }
+        for (w, b, a) in izip!(&self.weights, &self.biases, &self.activations) {
+            output = (w.dot(&output) + b).mapv(a.activate());
         }
-        a
+        output
     }
 
     /// Returns accuracy of the network on mnist digit data as a percentage
@@ -228,15 +242,15 @@ fn activated(vec: &Array1<f32>) -> usize {
     vec.iter().position(|&x| x == max).unwrap()
 }
 
-fn activate(x: f32) -> f32 {
-    // x.max(0.0)
-    1. / (1. + (-x).exp())
-}
-
-fn activate_prime(x: f32) -> f32 {
-    // f32::from(x > 0.0)
-    activate(x) * (1. - activate(x))
-}
+// fn activate(x: f32) -> f32 {
+//     // x.max(0.0)
+//     1. / (1. + (-x).exp())
+// }
+//
+// fn activate_prime(x: f32) -> f32 {
+//     // f32::from(x > 0.0)
+//     activate(x) * (1. - activate(x))
+// }
 
 fn cost_derivative(prediction: &Array1<f32>, target: &Array1<f32>) -> Array1<f32> {
     prediction - target
