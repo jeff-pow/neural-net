@@ -1,6 +1,8 @@
 mod activations;
 mod network;
 
+use std::process::exit;
+
 use crate::activations::Activation::*;
 use crate::network::Data;
 use mnist::*;
@@ -11,7 +13,18 @@ use rand::{rngs::StdRng, seq::SliceRandom, SeedableRng};
 const IMAGE_SIZE: usize = 28 * 28;
 
 fn main() {
-    let mut network = Network::new(vec![784, 20, 10], vec![Sigmoid, Sigmoid]);
+    let v = Array1::from_vec(vec![
+        -183.50314, -149.50034, -178.06677, -279.7047, -119.64786, -377.36646, -405.14584,
+        -180.80096, -264.9972, -201.14256, -189.98836, -255.09158, -399.01175, -119.10621,
+        -105.41289, -183.8304, -129.29338, -140.9623, -293.019, -552.58093,
+    ]);
+    let q = Array1::from_vec(vec![
+        183.50314, 149.50034, 178.06677, 279.7047, 119.64786, 377.36646, 405.14584, 180.80096,
+        264.9972, 201.14256, 189.98836, 255.09158, 399.01175, 119.10621, 105.41289, 183.8304,
+        129.29338, 140.9623, 293.019, 552.58093,
+    ]);
+    dbg!(Softmax.activate(&v));
+    let mut network = Network::new(vec![784, 20, 10], vec![Sigmoid, Softmax]);
     let (mut train_data, test_data) = load_data();
 
     network.train(&mut train_data, 30, 10, 3.0);

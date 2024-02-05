@@ -5,6 +5,7 @@ pub enum Activation {
     Sigmoid,
     Relu,
     Identity,
+    Softmax,
 }
 
 impl Activation {
@@ -13,6 +14,7 @@ impl Activation {
             Activation::Sigmoid => vec.mapv(Sigmoid::activate),
             Activation::Relu => vec.mapv(Relu::activate),
             Activation::Identity => vec.mapv(Identity::activate),
+            Activation::Softmax => softmax(vec),
         }
     }
 
@@ -21,8 +23,36 @@ impl Activation {
             Activation::Sigmoid => vec.mapv(Sigmoid::activate_prime),
             Activation::Relu => vec.mapv(Relu::activate_prime),
             Activation::Identity => vec.mapv(Identity::activate_prime),
+            Activation::Softmax => {
+                let mut ret = Array1::zeros(vec.len());
+                let activated = softmax(vec);
+                // dbg!(vec);
+                // dbg!(&activated);
+                assert!(!activated.iter().any(|x| x.is_nan()));
+                for i in 0..ret.len() {
+                    for j in 0..ret.len() {
+                        if i == j {
+                            ret[i] += activated[i] * (1.0 - activated[i]);
+                        }
+                        ret[i] += -activated[i] * activated[j];
+                    }
+                }
+                assert!(!ret.iter().any(|x: &f32| x.is_nan()));
+                ret
+            }
         }
     }
+}
+
+fn softmax(vec: &Array1<f32>) -> Array1<f32> {
+    let max = vec
+        .iter()
+        .max_by(|x, y| x.partial_cmp(y).expect("Numbers are comparable"))
+        .unwrap();
+    // Subtract highest element from each in order to restrict range of values and hopefully
+    // prevent nan's in the activated vector
+    let denominator = vec.iter().map(|x| (x - max).exp()).sum::<f32>();
+    vec.mapv(|x| (x - max).exp() / denominator)
 }
 
 pub trait ActivationFunction {

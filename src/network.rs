@@ -77,19 +77,11 @@ impl Network {
             biases_change.push(Array1::zeros(b.len()));
         }
         let mut weights_change: Vec<Array2<f32>> = Vec::new();
-        for b in &self.weights {
-            weights_change.push(Array2::zeros(b.raw_dim()));
+        for w in &self.weights {
+            weights_change.push(Array2::zeros(w.raw_dim()));
         }
         for (x, y) in mini_batch {
             let (delta_biases, delta_weights) = self.backward(x, y);
-            for (db, dw) in delta_biases.iter().zip(&delta_weights) {
-                if self.evaluate(&[(x.clone(), y.clone())]) != 1.0 {
-                    // dbg!(&self.feed_forward(x));
-                    // dbg!(&y);
-                    assert_ne!(db, Array1::zeros(db.len()));
-                    assert_ne!(dw, Array2::zeros((dw.nrows(), dw.ncols())));
-                }
-            }
             biases_change = biases_change
                 .iter()
                 .zip(delta_biases.iter())
@@ -100,6 +92,12 @@ impl Network {
                 .zip(delta_weights.iter())
                 .map(|(nw, dnw)| nw + dnw)
                 .collect();
+            assert!(
+                !delta_weights.iter().flatten().any(|x| x.is_nan()),
+                "{:?}",
+                delta_weights
+            );
+            assert!(!delta_biases.iter().flatten().any(|x| x.is_nan()));
         }
 
         self.weights
@@ -107,18 +105,11 @@ impl Network {
             .flatten()
             .zip(weights_change.iter().flatten())
             .for_each(|(w, nw)| *w -= lr / mini_batch.len() as f32 * nw);
-        let b = self.biases.clone();
         self.biases
             .iter_mut()
             .flatten()
             .zip(biases_change.iter().flatten())
             .for_each(|(b, nb)| *b -= lr / mini_batch.len() as f32 * nb);
-        if b == self.biases {
-            biases_change
-                .iter()
-                .flatten()
-                .for_each(|&x| assert_eq!(x, 0.));
-        }
     }
 
     pub fn backward(
@@ -149,6 +140,9 @@ impl Network {
                 .last()
                 .unwrap()
                 .activate_prime(zs.last().unwrap());
+        // dbg!(zs.last().unwrap());
+        // dbg!(Activation::Softmax.activate(zs.last().unwrap()));
+        // dbg!(Activation::Softmax.activate_prime(zs.last().unwrap()));
 
         let mut delta_biases = Vec::new();
         let mut delta_weights = Vec::new();
@@ -157,14 +151,6 @@ impl Network {
         delta_biases.push(delta.clone());
         // BP4
         delta_weights.push(fat_cross(&delta, &activations[activations.len() - 2]));
-        assert_eq!(
-            delta_weights.last().unwrap().shape(),
-            self.weights.last().unwrap().shape()
-        );
-        assert_eq!(
-            delta_biases.last().unwrap().shape(),
-            self.biases.last().unwrap().shape()
-        );
 
         for l in 1..self.num_layers() - 1 {
             let idx = self.num_layers() - 1 - l;
@@ -173,16 +159,6 @@ impl Network {
             delta_weights.push(fat_cross(&delta, &activations[idx - 1]));
             delta_biases.push(delta.clone());
         }
-        // l = 1, l - 1 = 0
-        // delta = (self.weights[1].t().dot(&delta)) * zs[0].mapv(activate_prime);
-        // delta_weights.push(fat_cross(&delta, &activations[0]));
-        // delta_biases.push(delta);
-
-        assert_eq!(delta_biases.last().unwrap().shape(), self.biases[0].shape());
-        assert_eq!(
-            delta_weights.last().unwrap().shape(),
-            self.weights[0].shape()
-        );
 
         delta_biases.reverse();
         delta_weights.reverse();
