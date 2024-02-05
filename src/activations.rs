@@ -1,3 +1,5 @@
+use ndarray::Array1;
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Activation {
     Sigmoid,
@@ -6,19 +8,19 @@ pub enum Activation {
 }
 
 impl Activation {
-    pub fn activate(&self) -> impl Fn(f32) -> f32 {
+    pub fn activate(&self, vec: &Array1<f32>) -> Array1<f32> {
         match self {
-            Activation::Sigmoid => Sigmoid::activate,
-            Activation::Relu => Relu::activate,
-            Activation::Identity => Identity::activate,
+            Activation::Sigmoid => vec.mapv(Sigmoid::activate),
+            Activation::Relu => vec.mapv(Relu::activate),
+            Activation::Identity => vec.mapv(Identity::activate),
         }
     }
 
-    pub fn activate_prime(&self) -> impl Fn(f32) -> f32 {
+    pub fn activate_prime(&self, vec: &Array1<f32>) -> Array1<f32> {
         match self {
-            Activation::Sigmoid => Sigmoid::activate_prime,
-            Activation::Relu => Relu::activate_prime,
-            Activation::Identity => Identity::activate_prime,
+            Activation::Sigmoid => vec.mapv(Sigmoid::activate_prime),
+            Activation::Relu => vec.mapv(Relu::activate_prime),
+            Activation::Identity => vec.mapv(Identity::activate_prime),
         }
     }
 }

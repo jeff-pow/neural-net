@@ -136,7 +136,7 @@ impl Network {
             let z = w.dot(&activation) + b;
             zs.push(z.clone());
             // activation = sigmoid(&z);
-            activation = z.mapv(a.activate());
+            activation = a.activate(&z);
             activations.push(activation.clone());
         }
 
@@ -144,9 +144,11 @@ impl Network {
         // to the final layer.
         // BP1
         let mut delta = cost_derivative(activations.last().unwrap(), target_output)
-            * zs.last()
+            * self
+                .activations
+                .last()
                 .unwrap()
-                .mapv(self.activations.last().unwrap().activate_prime());
+                .activate_prime(zs.last().unwrap());
 
         let mut delta_biases = Vec::new();
         let mut delta_weights = Vec::new();
@@ -167,7 +169,7 @@ impl Network {
         for l in 1..self.num_layers() - 1 {
             let idx = self.num_layers() - 1 - l;
             delta = self.weights[idx].t().dot(&delta)
-                * zs[idx - 1].mapv(self.activations[idx].activate_prime());
+                * self.activations[idx].activate_prime(&zs[idx - 1]);
             delta_weights.push(fat_cross(&delta, &activations[idx - 1]));
             delta_biases.push(delta.clone());
         }
@@ -218,7 +220,7 @@ impl Network {
         //     output = (w.dot(&output) + b).mapv(activate);
         // }
         for (w, b, a) in izip!(&self.weights, &self.biases, &self.activations) {
-            output = (w.dot(&output) + b).mapv(a.activate());
+            output = a.activate(&(w.dot(&output) + b));
         }
         output
     }
